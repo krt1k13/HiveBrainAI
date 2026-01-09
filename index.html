@@ -205,17 +205,17 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
-        // --- GITHUB PAGES CONFIGURATION ---
-        // To make this work on GitHub Pages, create a Firebase Project at console.firebase.google.com
-        // and replace the object below with your Web App configuration.
+        // --- UPDATED FIREBASE CONFIGURATION ---
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyCo7MaoXSGE7BcK-gOLI7xV6l9hSNwP158",
+            authDomain: "communityai-2eb16.firebaseapp.com",
+            projectId: "communityai-2eb16",
+            storageBucket: "communityai-2eb16.firebasestorage.app",
+            messagingSenderId: "750106858888",
+            appId: "1:750106858888:web:f527a6e73daef349d6163d",
+            measurementId: "G-39B2BVQLFY"
         };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hive-chat-v1';
@@ -223,6 +223,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const analytics = getAnalytics(app);
 
         const chatWindow = document.getElementById('chat-window');
         const chatForm = document.getElementById('chat-form');
@@ -245,23 +246,29 @@
 
         const loadData = () => {
             if (!user) return;
+            // Following Rule 1: /artifacts/{appId}/public/data/{collectionName}
             const memoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory');
             onSnapshot(memoryRef, (snap) => {
                 hiveMemory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 memoryInfo.innerText = `${hiveMemory.length}_NODES_LOADED`;
-            });
+            }, (err) => console.error("Memory listen error:", err));
 
             const blacklistRef = collection(db, 'artifacts', appId, 'public', 'data', 'blacklist');
             onSnapshot(blacklistRef, (snap) => {
                 blacklist = snap.docs.map(d => d.data().word.toLowerCase());
-            });
+            }, (err) => console.error("Blacklist listen error:", err));
         };
 
         const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Authentication failed:", err);
+                memoryInfo.innerText = "AUTH_FAILED";
             }
         };
 
@@ -277,10 +284,7 @@
             }
         });
 
-        initAuth().catch(err => {
-            console.error("Auth error:", err);
-            memoryInfo.innerText = "AUTH_ERROR";
-        });
+        initAuth();
 
         window.openModal = (id) => document.getElementById(id).style.display = 'flex';
         window.closeModal = (id) => document.getElementById(id).style.display = 'none';
@@ -308,6 +312,7 @@
         };
 
         window.likeResponse = async (id) => {
+            if (!user) return;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ai_memory', id);
             await updateDoc(docRef, { likes: increment(1) });
         };
