@@ -13,6 +13,7 @@
             --surface: #0a0a0a;
             --accent: #ffffff;
             --border: rgba(255, 255, 255, 0.1);
+            --red: #ff3b3b;
         }
 
         body {
@@ -29,7 +30,6 @@
 
         .mono { font-family: 'Space Mono', monospace; }
 
-        /* Geometric Glass Effect */
         .glass {
             background: rgba(255, 255, 255, 0.02);
             backdrop-filter: blur(15px);
@@ -96,99 +96,102 @@
             letter-spacing: 1px;
         }
 
-        .btn-action {
-            font-family: 'Space Mono';
-            padding: 0.5rem 1rem;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            transition: all 0.2s;
-            border: 1px solid var(--border);
-            background: transparent;
-        }
-
-        .btn-action:hover {
-            background: var(--accent);
-            color: var(--bg);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 100;
+        .checkbox-container {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
+            cursor: pointer;
+            user-select: none;
         }
-
-        .modal-box {
-            background: #050505;
-            width: 100%;
-            max-width: 500px;
-            border: 1px solid #222;
-            padding: 2.5rem;
+        .checkbox-container input { display: none; }
+        .checkmark {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #333;
+            margin-right: 8px;
+            display: inline-block;
+            position: relative;
+            transition: all 0.2s;
         }
-
-        /* Scanline Overlay */
-        .scanlines {
+        .checkbox-container input:checked + .checkmark {
+            background: white;
+            border-color: white;
+        }
+        .checkbox-container input:checked + .checkmark::after {
+            content: '';
             position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            z-index: 99;
-            background-size: 100% 4px;
-            pointer-events: none;
-            opacity: 0.1;
+            left: 3px;
+            top: 0px;
+            width: 4px;
+            height: 8px;
+            border: solid black;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
         }
 
         .chat-container::-webkit-scrollbar { width: 0; }
+        
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        .action-btn {
+            font-size: 7px;
+            letter-spacing: 1px;
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s;
+        }
+        .action-btn:hover {
+            border-color: white;
+            background: rgba(255,255,255,0.05);
+        }
+        .action-btn.red:hover {
+            border-color: var(--red);
+            color: var(--red);
+        }
     </style>
 </head>
 <body>
     <div class="scanlines"></div>
 
-    <!-- Header -->
     <nav class="h-16 flex items-center justify-between px-6 border-b border-[#1a1a1a] bg-black sticky top-0 z-50">
         <div class="flex items-center gap-4">
-            <div id="status-dot" class="w-2 h-2 bg-red-600 rounded-full"></div>
+            <div id="status-dot" class="w-2 h-2 bg-red-600 rounded-full transition-colors duration-500"></div>
             <div>
                 <h1 class="text-[10px] mono font-bold tracking-[0.3em] uppercase">Hive Chat // OS</h1>
                 <p id="memory-info" class="text-[8px] mono text-zinc-600 uppercase">System Initializing...</p>
             </div>
         </div>
-        <button onclick="openModal('help-modal')" class="btn-action">Guidebook</button>
+        <div class="flex gap-4">
+            <label class="checkbox-container">
+                <input type="checkbox" id="search-permission">
+                <span class="checkmark"></span>
+                <span class="text-[8px] mono uppercase opacity-60">Search Archive</span>
+            </label>
+            <span id="connection-status" class="text-[8px] mono uppercase opacity-40 self-center">Offline</span>
+        </div>
     </nav>
 
-    <!-- Chat Area -->
     <main id="chat-window" class="chat-container">
         <div class="message ai-message">
-            <div class="bubble ai-bubble">
-                System online. I am a collective memory. I have no core identity—I only respond using the logic provided by this community.
+            <div class="bubble ai-bubble" id="welcome-bubble">
+                Collective node active. High-trust memories are prioritized. Reported nodes are pruned automatically.
             </div>
         </div>
     </main>
 
-    <!-- Guide Modal -->
-    <div id="help-modal" class="modal" onclick="if(event.target === this) closeModal('help-modal')">
-        <div class="modal-box">
-            <h2 class="text-xs mono font-black mb-6 tracking-[0.4em] uppercase">System_manual</h2>
-            <div class="space-y-6 text-[10px] mono leading-relaxed text-zinc-500">
-                <p><span class="text-white font-bold">01_COMMUNITY_MEMORY:</span> My responses are pulled from a shared database created by users.</p>
-                <p><span class="text-white font-bold">02_TEACHING_MODE:</span> If I encounter an unknown phrase, you will be prompted to define a response.</p>
-                <p><span class="text-white font-bold">03_VOTING:</span> Use "Like" to promote accurate responses within the collective.</p>
-                <p><span class="text-white font-bold">04_SAFETY:</span> Report harmful logic for redaction.</p>
-            </div>
-            <button onclick="closeModal('help-modal')" class="mt-10 w-full py-4 bg-white text-black text-[10px] mono font-black uppercase hover:bg-zinc-200 transition-colors">Exit_Manual</button>
-        </div>
-    </div>
-
-    <!-- Input Area -->
     <footer class="p-6 bg-black border-t border-[#1a1a1a]">
         <div class="max-w-4xl mx-auto">
             <form id="chat-form" class="relative group">
                 <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-zinc-800 group-focus-within:bg-white transition-all"></div>
-                <input type="text" id="user-input" placeholder="Initializing Node..." 
+                <input type="text" id="user-input" placeholder="Awaiting authentication..." 
                     class="w-full bg-[#050505] border border-[#1a1a1a] px-6 py-5 text-xs mono uppercase focus:outline-none focus:border-white transition-all" disabled>
                 <button type="submit" id="send-btn" disabled 
                     class="absolute right-3 top-1/2 -translate-y-1/2 bg-white text-black px-6 py-2 text-[9px] font-black mono uppercase hover:tracking-widest transition-all disabled:opacity-30">
@@ -196,8 +199,8 @@
                 </button>
             </form>
             <div class="flex justify-between items-center mt-4 opacity-30">
-                <span id="connection-status" class="text-[8px] mono uppercase">Node_Status: Offline</span>
-                <span id="user-uid" class="text-[8px] mono uppercase">ID_NULL</span>
+                <span id="user-uid" class="text-[8px] mono uppercase">ID_PENDING</span>
+                <span class="text-[8px] mono uppercase tracking-widest">Protocol v4.2 // FAST_COMMIT</span>
             </div>
         </div>
     </footer>
@@ -205,174 +208,217 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIGURATION: Using a function to hide the key from simple regex scrapers
-        const getCfg = () => ({
-            apiKey: "AIzaSy" + "Co7MaoXSGE7BcK-gOLI7xV6l9hSNwP158",
+        const firebaseConfig = {
+            apiKey: "AIzaSyCo7MaoXSGE7BcK-gOLI7xV6l9hSNwP158",
             authDomain: "communityai-2eb16.firebaseapp.com",
             projectId: "communityai-2eb16",
             storageBucket: "communityai-2eb16.firebasestorage.app",
             messagingSenderId: "750106858888",
-            appId: "1:750106858888:web:f527a6e73daef349d6163d"
-        });
+            appId: "1:750106858888:web:f527a6e73daef349d6163d",
+            measurementId: "G-39B2BVQLFY"
+        };
 
-        const appId = 'hive-chat-v1';
-        let db, auth, user = null;
+        let db, auth, appId;
         let hiveMemory = [];
-        let blacklist = [];
+        let dataLoaded = false;
 
-        // DOM elements
         const chatWindow = document.getElementById('chat-window');
         const chatForm = document.getElementById('chat-form');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
-        const statusDot = document.getElementById('status-dot');
         const memoryInfo = document.getElementById('memory-info');
         const uidDisplay = document.getElementById('user-uid');
-        const connStatus = document.getElementById('connection-status');
+        const statusDot = document.getElementById('status-dot');
+        const connStatusText = document.getElementById('connection-status');
+        const searchPermission = document.getElementById('search-permission');
 
-        function startApp() {
+        async function fetchWikipedia(subject) {
             try {
-                const app = initializeApp(getCfg());
+                const endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(subject)}`;
+                const response = await fetch(endpoint);
+                if (!response.ok) return null;
+                const data = await response.json();
+                return data.extract || null;
+            } catch (e) { return null; }
+        }
+
+        async function initApp() {
+            try {
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'hive-node-v1';
+                const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-                setupAuth();
-            } catch (e) {
-                console.error("Initialization error:", e);
-                memoryInfo.innerText = "CRITICAL_SYSTEM_FAILURE";
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        uidDisplay.innerText = `ID_${user.uid}`;
+                        statusDot.classList.replace('bg-red-600', 'bg-white');
+                        statusDot.classList.add('animate-pulse');
+                        connStatusText.innerText = "Online";
+                        userInput.disabled = false;
+                        sendBtn.disabled = false;
+                        userInput.placeholder = "Query collective memory...";
+                        if (!dataLoaded) { initSync(); dataLoaded = true; }
+                    }
+                });
+                await signInAnonymously(auth);
+            } catch (err) {
+                console.error("Init Error:", err);
+                memoryInfo.innerText = "AUTH_LOCKED";
+                if (err.code === 'auth/configuration-not-found') {
+                    document.getElementById('welcome-bubble').innerHTML = `<span class="text-red-500 font-bold">CRITICAL_ERROR:</span> Anonymous Authentication is disabled. Enable it in your <a href="https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers" target="_blank" class="underline">Firebase Console</a>.`;
+                }
             }
         }
 
-        function setupAuth() {
-            onAuthStateChanged(auth, (u) => {
-                user = u;
-                if (user) {
-                    statusDot.classList.remove('bg-red-600', 'bg-gray-600');
-                    statusDot.classList.add('bg-white', 'animate-pulse');
-                    userInput.disabled = false;
-                    userInput.placeholder = "Talk to the Hive...";
-                    sendBtn.disabled = false;
-                    uidDisplay.innerText = `ID_${user.uid.substring(0,8)}`;
-                    connStatus.innerText = "Node_Status: Online";
-                    loadData();
-                }
-            });
-
-            signInAnonymously(auth).catch(err => {
-                console.error("Auth error:", err);
-                memoryInfo.innerText = "AUTH_REJECTED_BY_FIREBASE";
-            });
-        }
-
-        function loadData() {
+        function initSync() {
             const memoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory');
             onSnapshot(memoryRef, (snap) => {
                 hiveMemory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 memoryInfo.innerText = `${hiveMemory.length}_NODES_SYNCED`;
             }, (err) => {
-                console.error("Firestore error:", err);
-                memoryInfo.innerText = "DATA_SYNC_ERROR";
-            });
-
-            const blRef = collection(db, 'artifacts', appId, 'public', 'data', 'blacklist');
-            onSnapshot(blRef, (snap) => {
-                blacklist = snap.docs.map(d => d.data().word.toLowerCase());
+                console.error("Sync Error:", err);
+                memoryInfo.innerText = "SYNC_LOCKED";
             });
         }
 
-        function getSimilarity(text, itemText) {
-            const words1 = text.toLowerCase().split(/\s+/);
-            const words2 = itemText.toLowerCase().split(/\s+/);
-            const matches = words1.filter(w => words2.includes(w));
-            return matches.length / Math.max(words1.length, words2.length);
-        }
+        window.commitLogic = async (trigger, teachId) => {
+            if (!auth.currentUser) return;
+            const inputEl = document.getElementById(`teach-in-${teachId}`);
+            const responseText = inputEl.value.trim();
+            if (!responseText) return;
 
-        window.openModal = (id) => document.getElementById(id).style.display = 'flex';
-        window.closeModal = (id) => document.getElementById(id).style.display = 'none';
+            const container = inputEl.parentElement;
+            // Optimistic UI: Don't wait for the network to show success state
+            container.innerHTML = `<p class="text-[9px] mono uppercase text-white font-bold animate-pulse">Node_Synced_Success</p>`;
 
-        window.teachHive = async (question, btnId) => {
-            const input = document.getElementById(`teach-input-${btnId}`);
-            const answer = input.value.trim();
-            if (!answer || !user) return;
-            const box = input.parentElement;
-            box.innerHTML = `<p class="text-[9px] mono italic text-zinc-500 uppercase">Committing...</p>`;
             try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory'), {
-                    input_text: question.toLowerCase(),
-                    response_text: answer,
-                    userId: user.uid,
-                    likes: 0,
+                // We don't "await" the addDoc here to make the UI feel instant
+                addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory'), {
+                    input_text: trigger.toLowerCase(),
+                    response_text: responseText,
+                    userId: auth.currentUser.uid,
+                    likes: 1, 
+                    dislikes: 0,
+                    reports: 0,
                     created: serverTimestamp()
+                }).catch(e => {
+                    console.error("Write failed:", e);
+                    container.innerHTML = `<p class="text-[9px] mono uppercase text-red-500">Sync_Failed: Retry Required</p>`;
                 });
-                box.innerHTML = `<p class="text-[9px] mono text-white uppercase">Memory_Synced</p>`;
-            } catch (e) {
-                box.innerHTML = `<p class="text-[9px] mono text-red-500 uppercase">Comm_Error</p>`;
+            } catch (e) { 
+                container.innerHTML = `<p class="text-[9px] mono uppercase text-red-500">Write_Denied</p>`; 
             }
         };
 
-        window.likeResponse = async (id) => {
-            if (!user) return;
+        window.vote = async (docId, type, btn) => {
+            if (!auth.currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ai_memory', docId);
+            const parent = btn.parentElement;
+            
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ai_memory', id);
-                await updateDoc(docRef, { likes: increment(1) });
-            } catch (e) {}
+                if (type === 'report') {
+                    if (confirm("Block and report this content? Nodes with high reports are pruned from the collective.")) {
+                        await updateDoc(docRef, { reports: increment(1) });
+                        const node = hiveMemory.find(n => n.id === docId);
+                        if (node && node.reports >= 2) await deleteDoc(docRef);
+                        parent.innerHTML = `<span class="text-[7px] text-red-500 mono">NODE_BLOCKED</span>`;
+                    }
+                } else {
+                    const update = type === 'up' ? { likes: increment(1) } : { dislikes: increment(1) };
+                    // Optimistic state
+                    btn.classList.add('bg-white', 'text-black');
+                    btn.disabled = true;
+                    await updateDoc(docRef, update);
+                }
+            } catch (e) { console.error(e); }
         };
 
         function appendMessage(text, isAi = false, metadata = null) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${isAi ? 'ai-message' : 'user-message'}`;
-            let html = `<div class="bubble ${isAi ? 'ai-bubble' : 'user-bubble'}">${text}</div>`;
+            
+            let sourceTag = isAi ? (metadata?.source ? `[SOURCE: ${metadata.source}]` : '') : '';
+            let html = `<div class="bubble ${isAi ? 'ai-bubble' : 'user-bubble'}">
+                ${sourceTag ? `<div class="text-[8px] opacity-40 mb-1 mono">${sourceTag}</div>` : ''}
+                ${text}
+            </div>`;
+            
             if (isAi && metadata?.isNew) {
-                const btnId = Math.random().toString(36).substring(7);
+                const teachId = Math.random().toString(36).substring(7);
                 html += `
                     <div class="mt-4 p-5 glass w-full max-w-xs border-dashed border-zinc-800 border">
                         <p class="text-[8px] mono text-zinc-500 mb-3 uppercase font-bold tracking-widest">Logic_Gap Found</p>
-                        <textarea id="teach-input-${btnId}" placeholder="Define response..." class="w-full bg-transparent border border-zinc-800 p-3 text-[10px] mono mb-3 outline-none focus:border-white h-20 resize-none"></textarea>
-                        <button onclick="teachHive('${metadata.trigger.replace(/'/g, "\\'")}', '${btnId}')" class="w-full py-3 bg-white text-black text-[9px] mono font-bold uppercase">Save_Logic</button>
+                        <textarea id="teach-in-${teachId}" placeholder="Define collective response..." class="w-full bg-transparent border border-zinc-800 p-3 text-[10px] mono mb-3 outline-none focus:border-white h-20 resize-none"></textarea>
+                        <button onclick="window.commitLogic('${metadata.trigger.replace(/'/g, "\\'")}', '${teachId}')" class="w-full py-3 bg-white text-black text-[9px] mono font-bold uppercase">Commit_Logic</button>
                     </div>
                 `;
-            } else if (isAi && !metadata?.isNew && !text.includes('█')) {
-                html += `<div class="flex gap-4 mt-2 px-1">
-                    <button onclick="this.disabled=true; likeResponse('${metadata?.id}')" class="text-[8px] mono text-zinc-600 hover:text-white uppercase tracking-tighter">Like_[${metadata?.likes || 0}]</button>
-                </div>`;
+            } else if (isAi && metadata?.id) {
+                html += `
+                    <div class="mt-2 flex gap-2 px-1">
+                        <button onclick="window.vote('${metadata.id}', 'up', this)" class="action-btn mono uppercase">TRUST_[${metadata.likes || 0}]</button>
+                        <button onclick="window.vote('${metadata.id}', 'down', this)" class="action-btn mono uppercase">DISTRUST_[${metadata.dislikes || 0}]</button>
+                        <button onclick="window.vote('${metadata.id}', 'report', this)" class="action-btn red mono uppercase ml-auto">BLOCK_REPORT</button>
+                    </div>
+                `;
             }
+
             msgDiv.innerHTML = html;
             chatWindow.appendChild(msgDiv);
             chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
         }
 
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = userInput.value.trim();
-            if (!text) return;
-            userInput.value = '';
-            appendMessage(text, false);
+        function findBestMatch(input) {
+            const queryWords = input.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
             let best = null;
-            let topScore = 0;
-            hiveMemory.forEach(item => {
-                const score = getSimilarity(text, item.input_text);
-                if (score > topScore) {
-                    topScore = score;
-                    best = item;
+            let maxScore = 0;
+
+            hiveMemory.forEach(node => {
+                if ((node.reports || 0) > 2) return; 
+                const nodeWords = (node.input_text || "").toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+                if (queryWords.length === 0 || nodeWords.length === 0) return;
+                const matches = queryWords.filter(w => nodeWords.includes(w));
+                let matchScore = matches.length / Math.max(queryWords.length, nodeWords.length);
+                const trust = (node.likes || 0) - (node.dislikes || 0);
+                const trustMultiplier = 1 + (Math.max(Math.min(trust, 10), -5) / 40); 
+                const finalScore = matchScore * trustMultiplier;
+                if (finalScore > maxScore) {
+                    maxScore = finalScore;
+                    best = node;
                 }
             });
-            setTimeout(() => {
-                if (best && topScore > 0.3) {
-                    let safeText = best.response_text;
-                    blacklist.forEach(word => {
-                        const r = new RegExp(word, 'gi');
-                        safeText = safeText.replace(r, '█'.repeat(word.length));
+            return { match: best, score: maxScore };
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text || !auth.currentUser) return;
+            userInput.value = '';
+            appendMessage(text, false);
+
+            const { match, score } = findBestMatch(text);
+
+            if (match && score > 0.35) {
+                setTimeout(() => {
+                    appendMessage(match.response_text, true, { 
+                        isNew: false, id: match.id, likes: match.likes, dislikes: match.dislikes, source: "COLLECTIVE" 
                     });
-                    appendMessage(safeText, true, { isNew: false, id: best.id, likes: best.likes });
-                } else {
-                    appendMessage(`I don't know the logic for "${text}" yet.`, true, { isNew: true, trigger: text });
-                }
-            }, 600);
+                }, 100);
+            } else if (searchPermission.checked) {
+                const wikiResult = await fetchWikipedia(text);
+                if (wikiResult) { appendMessage(wikiResult, true, { source: "WIKIPEDIA_ARCHIVE" }); } 
+                else { appendMessage(`Logic gap identified for "${text}". Train the collective?`, true, { isNew: true, trigger: text }); }
+            } else {
+                setTimeout(() => {
+                    appendMessage(`Collective logic for "${text}" is not yet indexed. Enable 'Search' or define it.`, true, { isNew: true, trigger: text });
+                }, 100);
+            }
         });
 
-        // Initialize on load
-        window.addEventListener('load', startApp);
+        window.onload = initApp;
     </script>
 </body>
 </html>
