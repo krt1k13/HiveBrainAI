@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>Hive Chat // OS Interface</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -31,8 +31,8 @@
         /* Geometric Glass Effect */
         .glass {
             background: rgba(255, 255, 255, 0.02);
-            -webkit-backdrop-filter: blur(15px);
             backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border: 1px solid var(--border);
         }
 
@@ -130,7 +130,6 @@
             padding: 2.5rem;
         }
 
-        /* Scanline effect from previous version */
         body::after {
             content: " ";
             display: block;
@@ -207,8 +206,19 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hivemind-persistent-v1';
+        // --- GITHUB PAGES CONFIGURATION ---
+        // To make this work on GitHub Pages, create a Firebase Project at console.firebase.google.com
+        // and replace the object below with your Web App configuration.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hive-chat-v1';
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -247,7 +257,7 @@
             });
         };
 
-        const init = async () => {
+        const initAuth = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
@@ -267,7 +277,10 @@
             }
         });
 
-        init();
+        initAuth().catch(err => {
+            console.error("Auth error:", err);
+            memoryInfo.innerText = "AUTH_ERROR";
+        });
 
         window.openModal = (id) => document.getElementById(id).style.display = 'flex';
         window.closeModal = (id) => document.getElementById(id).style.display = 'none';
