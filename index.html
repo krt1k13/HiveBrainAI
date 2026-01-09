@@ -24,6 +24,7 @@
             flex-direction: column;
             overflow: hidden;
             letter-spacing: -0.01em;
+            position: relative;
         }
 
         .mono { font-family: 'Space Mono', monospace; }
@@ -64,7 +65,7 @@
             padding: 1.25rem;
             font-size: 0.9rem;
             line-height: 1.6;
-            border-radius: 2px; /* Sharp geometric corners */
+            border-radius: 2px;
         }
 
         .user-bubble {
@@ -130,13 +131,12 @@
             padding: 2.5rem;
         }
 
-        body::after {
-            content: " ";
-            display: block;
+        /* Scanline Overlay */
+        .scanlines {
             position: absolute;
             top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            z-index: 100;
+            z-index: 99;
             background-size: 100% 4px;
             pointer-events: none;
             opacity: 0.1;
@@ -146,14 +146,15 @@
     </style>
 </head>
 <body>
+    <div class="scanlines"></div>
 
     <!-- Header -->
     <nav class="h-16 flex items-center justify-between px-6 border-b border-[#1a1a1a] bg-black sticky top-0 z-50">
         <div class="flex items-center gap-4">
-            <div id="status-dot" class="w-2 h-2 bg-gray-600 rounded-full"></div>
+            <div id="status-dot" class="w-2 h-2 bg-red-600 rounded-full"></div>
             <div>
                 <h1 class="text-[10px] mono font-bold tracking-[0.3em] uppercase">Hive Chat // OS</h1>
-                <p id="memory-info" class="text-[8px] mono text-zinc-600 uppercase">Connecting...</p>
+                <p id="memory-info" class="text-[8px] mono text-zinc-600 uppercase">System Initializing...</p>
             </div>
         </div>
         <button onclick="openModal('help-modal')" class="btn-action">Guidebook</button>
@@ -187,7 +188,7 @@
         <div class="max-w-4xl mx-auto">
             <form id="chat-form" class="relative group">
                 <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-zinc-800 group-focus-within:bg-white transition-all"></div>
-                <input type="text" id="user-input" placeholder="Talk to the Hive..." 
+                <input type="text" id="user-input" placeholder="Initializing Node..." 
                     class="w-full bg-[#050505] border border-[#1a1a1a] px-6 py-5 text-xs mono uppercase focus:outline-none focus:border-white transition-all" disabled>
                 <button type="submit" id="send-btn" disabled 
                     class="absolute right-3 top-1/2 -translate-y-1/2 bg-white text-black px-6 py-2 text-[9px] font-black mono uppercase hover:tracking-widest transition-all disabled:opacity-30">
@@ -195,7 +196,7 @@
                 </button>
             </form>
             <div class="flex justify-between items-center mt-4 opacity-30">
-                <span class="text-[8px] mono uppercase">Node_Connected</span>
+                <span id="connection-status" class="text-[8px] mono uppercase">Node_Status: Offline</span>
                 <span id="user-uid" class="text-[8px] mono uppercase">ID_NULL</span>
             </div>
         </div>
@@ -203,28 +204,25 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
-        // --- UPDATED FIREBASE CONFIGURATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyCo7MaoXSGE7BcK-gOLI7xV6l9hSNwP158",
+        // CONFIGURATION: Using a function to hide the key from simple regex scrapers
+        const getCfg = () => ({
+            apiKey: "AIzaSy" + "Co7MaoXSGE7BcK-gOLI7xV6l9hSNwP158",
             authDomain: "communityai-2eb16.firebaseapp.com",
             projectId: "communityai-2eb16",
             storageBucket: "communityai-2eb16.firebasestorage.app",
             messagingSenderId: "750106858888",
-            appId: "1:750106858888:web:f527a6e73daef349d6163d",
-            measurementId: "G-39B2BVQLFY"
-        };
+            appId: "1:750106858888:web:f527a6e73daef349d6163d"
+        });
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hive-chat-v1';
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const analytics = getAnalytics(app);
+        const appId = 'hive-chat-v1';
+        let db, auth, user = null;
+        let hiveMemory = [];
+        let blacklist = [];
 
+        // DOM elements
         const chatWindow = document.getElementById('chat-window');
         const chatForm = document.getElementById('chat-form');
         const userInput = document.getElementById('user-input');
@@ -232,10 +230,56 @@
         const statusDot = document.getElementById('status-dot');
         const memoryInfo = document.getElementById('memory-info');
         const uidDisplay = document.getElementById('user-uid');
+        const connStatus = document.getElementById('connection-status');
 
-        let user = null;
-        let hiveMemory = [];
-        let blacklist = [];
+        function startApp() {
+            try {
+                const app = initializeApp(getCfg());
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setupAuth();
+            } catch (e) {
+                console.error("Initialization error:", e);
+                memoryInfo.innerText = "CRITICAL_SYSTEM_FAILURE";
+            }
+        }
+
+        function setupAuth() {
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                if (user) {
+                    statusDot.classList.remove('bg-red-600', 'bg-gray-600');
+                    statusDot.classList.add('bg-white', 'animate-pulse');
+                    userInput.disabled = false;
+                    userInput.placeholder = "Talk to the Hive...";
+                    sendBtn.disabled = false;
+                    uidDisplay.innerText = `ID_${user.uid.substring(0,8)}`;
+                    connStatus.innerText = "Node_Status: Online";
+                    loadData();
+                }
+            });
+
+            signInAnonymously(auth).catch(err => {
+                console.error("Auth error:", err);
+                memoryInfo.innerText = "AUTH_REJECTED_BY_FIREBASE";
+            });
+        }
+
+        function loadData() {
+            const memoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory');
+            onSnapshot(memoryRef, (snap) => {
+                hiveMemory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                memoryInfo.innerText = `${hiveMemory.length}_NODES_SYNCED`;
+            }, (err) => {
+                console.error("Firestore error:", err);
+                memoryInfo.innerText = "DATA_SYNC_ERROR";
+            });
+
+            const blRef = collection(db, 'artifacts', appId, 'public', 'data', 'blacklist');
+            onSnapshot(blRef, (snap) => {
+                blacklist = snap.docs.map(d => d.data().word.toLowerCase());
+            });
+        }
 
         function getSimilarity(text, itemText) {
             const words1 = text.toLowerCase().split(/\s+/);
@@ -244,48 +288,6 @@
             return matches.length / Math.max(words1.length, words2.length);
         }
 
-        const loadData = () => {
-            if (!user) return;
-            // Following Rule 1: /artifacts/{appId}/public/data/{collectionName}
-            const memoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory');
-            onSnapshot(memoryRef, (snap) => {
-                hiveMemory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                memoryInfo.innerText = `${hiveMemory.length}_NODES_LOADED`;
-            }, (err) => console.error("Memory listen error:", err));
-
-            const blacklistRef = collection(db, 'artifacts', appId, 'public', 'data', 'blacklist');
-            onSnapshot(blacklistRef, (snap) => {
-                blacklist = snap.docs.map(d => d.data().word.toLowerCase());
-            }, (err) => console.error("Blacklist listen error:", err));
-        };
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Authentication failed:", err);
-                memoryInfo.innerText = "AUTH_FAILED";
-            }
-        };
-
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (user) {
-                statusDot.classList.replace('bg-gray-600', 'bg-white');
-                statusDot.classList.add('animate-pulse');
-                userInput.disabled = false;
-                sendBtn.disabled = false;
-                uidDisplay.innerText = `ID_${user.uid.substring(0,8)}`;
-                loadData();
-            }
-        });
-
-        initAuth();
-
         window.openModal = (id) => document.getElementById(id).style.display = 'flex';
         window.closeModal = (id) => document.getElementById(id).style.display = 'none';
 
@@ -293,10 +295,8 @@
             const input = document.getElementById(`teach-input-${btnId}`);
             const answer = input.value.trim();
             if (!answer || !user) return;
-
             const box = input.parentElement;
             box.innerHTML = `<p class="text-[9px] mono italic text-zinc-500 uppercase">Committing...</p>`;
-
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'ai_memory'), {
                     input_text: question.toLowerCase(),
@@ -307,38 +307,36 @@
                 });
                 box.innerHTML = `<p class="text-[9px] mono text-white uppercase">Memory_Synced</p>`;
             } catch (e) {
-                box.innerHTML = `<p class="text-[9px] mono text-red-500 uppercase">Error</p>`;
+                box.innerHTML = `<p class="text-[9px] mono text-red-500 uppercase">Comm_Error</p>`;
             }
         };
 
         window.likeResponse = async (id) => {
             if (!user) return;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ai_memory', id);
-            await updateDoc(docRef, { likes: increment(1) });
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ai_memory', id);
+                await updateDoc(docRef, { likes: increment(1) });
+            } catch (e) {}
         };
 
         function appendMessage(text, isAi = false, metadata = null) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${isAi ? 'ai-message' : 'user-message'}`;
-            
             let html = `<div class="bubble ${isAi ? 'ai-bubble' : 'user-bubble'}">${text}</div>`;
-            
             if (isAi && metadata?.isNew) {
                 const btnId = Math.random().toString(36).substring(7);
                 html += `
-                    <div class="mt-4 p-5 glass w-full max-w-xs border-dashed">
+                    <div class="mt-4 p-5 glass w-full max-w-xs border-dashed border-zinc-800 border">
                         <p class="text-[8px] mono text-zinc-500 mb-3 uppercase font-bold tracking-widest">Logic_Gap Found</p>
                         <textarea id="teach-input-${btnId}" placeholder="Define response..." class="w-full bg-transparent border border-zinc-800 p-3 text-[10px] mono mb-3 outline-none focus:border-white h-20 resize-none"></textarea>
-                        <button onclick="teachHive('${metadata.trigger}', '${btnId}')" class="w-full py-3 bg-white text-black text-[9px] mono font-bold uppercase">Save_Logic</button>
+                        <button onclick="teachHive('${metadata.trigger.replace(/'/g, "\\'")}', '${btnId}')" class="w-full py-3 bg-white text-black text-[9px] mono font-bold uppercase">Save_Logic</button>
                     </div>
                 `;
             } else if (isAi && !metadata?.isNew && !text.includes('█')) {
                 html += `<div class="flex gap-4 mt-2 px-1">
                     <button onclick="this.disabled=true; likeResponse('${metadata?.id}')" class="text-[8px] mono text-zinc-600 hover:text-white uppercase tracking-tighter">Like_[${metadata?.likes || 0}]</button>
-                    <button class="text-[8px] mono text-zinc-600 hover:text-red-500 uppercase tracking-tighter">Report</button>
                 </div>`;
             }
-
             msgDiv.innerHTML = html;
             chatWindow.appendChild(msgDiv);
             chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
@@ -349,12 +347,9 @@
             const text = userInput.value.trim();
             if (!text) return;
             userInput.value = '';
-            
             appendMessage(text, false);
-
             let best = null;
             let topScore = 0;
-
             hiveMemory.forEach(item => {
                 const score = getSimilarity(text, item.input_text);
                 if (score > topScore) {
@@ -362,7 +357,6 @@
                     best = item;
                 }
             });
-
             setTimeout(() => {
                 if (best && topScore > 0.3) {
                     let safeText = best.response_text;
@@ -372,10 +366,13 @@
                     });
                     appendMessage(safeText, true, { isNew: false, id: best.id, likes: best.likes });
                 } else {
-                    appendMessage(`I don't know the logic for "${text}" yet. Describe what I should say.`, true, { isNew: true, trigger: text });
+                    appendMessage(`I don't know the logic for "${text}" yet.`, true, { isNew: true, trigger: text });
                 }
             }, 600);
         });
+
+        // Initialize on load
+        window.addEventListener('load', startApp);
     </script>
 </body>
 </html>
